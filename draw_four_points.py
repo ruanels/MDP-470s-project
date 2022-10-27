@@ -462,8 +462,7 @@ def imshow_gray_as_purple(im, dir_location, *args, **kwargs):
 
     # TODO: uncomment this to show the plot on your screen
     #plt.show()
-
-    plt.clf()
+    #plt.clf()
 
 
 if __name__ == "__main__":
@@ -502,7 +501,6 @@ if __name__ == "__main__":
     for i in range(9999999999):
         if i % 50 == 0:
             imshow_gray_as_purple(A_slime, plotdir)
-            plt.show()
 
         try:
             r.walk(angle)
@@ -518,4 +516,3 @@ if __name__ == "__main__":
             break
 
     imshow_gray_as_purple(A_slime, plotdir)
-    plt.show()
