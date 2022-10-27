@@ -2,6 +2,7 @@
 # TODO: tell this to Brent: https://stackoverflow.com/a/25644503/1490584
 import dataclasses
 from copy import copy
+from datetime import datetime
 from types import SimpleNamespace
 from typing import Tuple
 
@@ -15,6 +16,18 @@ from locate import this_dir
 from pathlib import Path
 
 tau = 2 * np.pi
+
+
+def mkdir_and_delete_content(path):
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        for f in path.iterdir():
+            f.unlink()
+    else:
+        path.mkdir()
+
+    return path
 
 
 def roundi(x):
@@ -421,8 +434,12 @@ def draw_0_on_img(im, f, *args, **kwargs):
     im[indexes] = 0
 
 
+def get_current_datetime_as_string():
+    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+
+
 # Note that you should edit this further in order to export images to use in your presentation
-def imshow_gray_as_purple(im, *args, **kwargs):
+def imshow_gray_as_purple(im, dir_location, *args, **kwargs):
     im = np.stack([im, im, im], axis=-1)
 
     mask0 = im == 0
@@ -441,6 +458,12 @@ def imshow_gray_as_purple(im, *args, **kwargs):
     #  also, be able to overwrite a certain directory with the images, so that cou can choose a directory to save the images to
     #  should probably be a argument to this function then
     plt.imshow(im, *args, **kwargs)
+    plt.savefig(Path(dir_location, get_current_datetime_as_string()+".png"), dpi=300, bbox_inches="tight")
+
+    # TODO: uncomment this to show the plot on your screen
+    #plt.show()
+
+    plt.clf()
 
 
 if __name__ == "__main__":
@@ -464,6 +487,7 @@ if __name__ == "__main__":
         slime_radius=20,
         slime_severity=0.1,
     )
+    plotdir = mkdir_and_delete_content(Path(this_dir(), "plots", "example1"))
 
     # TODO: maybe make border radius * 1.1 or something, but that gets convoluted with the start position!
     A = add_black_border_around_image(A, 120)
@@ -477,7 +501,7 @@ if __name__ == "__main__":
     angle = 0
     for i in range(9999999999):
         if i % 50 == 0:
-            imshow_gray_as_purple(A_slime)
+            imshow_gray_as_purple(A_slime, plotdir)
             plt.show()
 
         try:
@@ -493,5 +517,5 @@ if __name__ == "__main__":
         except IndexError:
             break
 
-    imshow_gray_as_purple(A_slime)
+    imshow_gray_as_purple(A_slime, plotdir)
     plt.show()
