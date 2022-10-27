@@ -1,8 +1,10 @@
 # Remember opencv points are (x=column,y=row) whereas numpy indexes are (i=row,j=column)
 # TODO: tell this to Brent: https://stackoverflow.com/a/25644503/1490584
 import dataclasses
+import shutil
 from copy import copy
 from datetime import datetime
+from shutil import copy2
 from types import SimpleNamespace
 from typing import Tuple
 
@@ -303,6 +305,10 @@ class Robot:
     step_size: int = 50
     slime_radius: int = 50
 
+    def __post_init__(self):
+        if self.angle - tau > 0:
+            self.angle -= tau
+
     def get_left_right_points(self):
         """
         Get the left and right points
@@ -356,15 +362,15 @@ class Robot:
         Walk the robot
         :param turn_angle: angle to walk
         """
-
         # rotate the robot
         self.angle += turn_angle
+        while(self.angle - tau > 0):
+            self.angle -= tau
 
         # convert angle to a unit vector
         unit_vector = np.array(
             [np.cos(self.angle - tau * 0.25), np.sin(self.angle - tau * 0.25)]
-        )
-        unit_vector = rotate_normal_vector(unit_vector, turn_angle) * self.radius * 0.5
+        ) * self.step_size
         self.position = roundi(np.array(self.position) + np.array(unit_vector))
 
     def draw_on_image(self, im):
@@ -372,7 +378,15 @@ class Robot:
             im, get_indexes_of_a_circle_starting_from_behind, self.position, self.radius
         )
         l, r = self.get_left_right_points()
+
         draw_0_on_img(im, get_indexes_of_all_pixels_forming_a_line, l, r)
+
+        # get normal vector
+        unit_vector = np.array(
+            [np.cos(self.angle - tau * 0.25), np.sin(self.angle - tau * 0.25)]
+        )
+        draw_0_on_img(im, get_indexes_of_all_pixels_forming_a_line, self.position, roundi(np.array(self.position) + unit_vector*self.radius/4))
+
 
     def draw_slime_trail(self, im, r_prev, severity):
         l, r = self.get_left_right_slime_points()
@@ -380,7 +394,7 @@ class Robot:
         idxes = get_indexes_of_all_pixels_within_any_four_points(l, r, l_p, r_p)
         im[idxes] = np.clip(im[idxes] + severity, 0, 1)
 
-    def get_best_angle_from_image(self, im, plot_me=False):
+    def get_best_angle_from_image(self, im, plot_dir=None):
         # as far as the bot looks
         idxes = get_indexes_of_a_circle_starting_from_behind(
             self.position, self.radius, self.angle
@@ -389,22 +403,22 @@ class Robot:
 
         # as far as the bot walks
         idxes = get_indexes_of_a_circle_starting_from_behind(
-            self.position, self.radius * 0.5, self.angle
+            self.position, self.step_size, self.angle
         )
         vec2 = im[idxes]
 
         # mask out indermediate objects (ideally it should include all pixels, aint nobody got time for that)
         mask_obsticle = np.zeros_like(vec1, dtype="int")
-        for mult in [0.5, 0.4, 0.2, 0.1]:
+        for mult in [1, 0.8, 0.5, 0.3, 0.1]:
             idxes = get_indexes_of_a_circle_starting_from_behind(
-                self.position, self.radius * mult, self.angle
+                self.position, self.step_size * mult, self.angle
             )
             v = im[idxes]
             mask_obsticle += v == 0
         mask_obsticle = mask_obsticle.astype("bool")
 
         # add a bias so that the bot want's to look in the forward direction
-        bias = np.r_[np.linspace(0.97, 1, 180), np.linspace(1, 0.97, 180)[1:]]
+        bias = np.r_[np.linspace(0.85, 1, 180), np.linspace(1, 0.85, 180)[1:]]
 
         # calculate a score for each angle degree
         vec = vec1 * vec2 * bias
@@ -416,15 +430,22 @@ class Robot:
             vec[m] = 0
 
         # basically just a hook to be able to see what's going on
-        if plot_me:
+        if plot_dir is not None:
             x = plt.linspace(-180, 179, 359)
             plt.plot(x, vec)
-            plt.show()
+            #plt.show()
 
         # finally, get the best angle to walk to next
         argm = np.argmax(vec)
         stop = mask_obsticle[argm]
-        angle = (argm - 180) / 360 * tau
+        angle = ((argm - 180) / 360) * tau
+
+        if plot_dir is not None:
+            plt.plot([argm-180, argm-180], [0, 1], "k")
+            path = Path(plot_dir, get_current_datetime_as_string() + ".png")
+            plt.savefig(path, dpi=50)
+            plt.close()
+            shutil.copy2(path, Path(plot_dir, "__latest__.png"))
 
         return angle, stop
 
@@ -436,6 +457,10 @@ def draw_0_on_img(im, f, *args, **kwargs):
 
 def get_current_datetime_as_string():
     return datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+
+
+def as_degree(angle):
+    return angle * 360 / tau
 
 
 # Note that you should edit this further in order to export images to use in your presentation
@@ -457,15 +482,42 @@ def imshow_gray_as_purple(im, dir_location, *args, **kwargs):
     # TODO: ask Brent to export the image as a png wit a high resolution
     #  also, be able to overwrite a certain directory with the images, so that cou can choose a directory to save the images to
     #  should probably be a argument to this function then
-    plt.imshow(im, *args, **kwargs)
-    plt.savefig(Path(dir_location, get_current_datetime_as_string()+".png"), dpi=300, bbox_inches="tight")
+    #plt.imshow(im, *args, **kwargs)
+    #plt.savefig(Path(dir_location, get_current_datetime_as_string()+".png"), dpi=300, bbox_inches="tight")
+    path = Path(dir_location, get_current_datetime_as_string()+".png")
+    plt.imsave(path, im)
+
+    copy2(path, Path(path.parent, "__latest__.png"))
 
     # TODO: uncomment this to show the plot on your screen
     #plt.show()
     #plt.clf()
 
+"""
+if 1:
+    A = (plt.imread(Path(this_dir(), "binimage.png"))[:, :, 0]).astype("float")
+    A = add_black_border_around_image(A, 120)
 
-if __name__ == "__main__":
+    # TODO: since the parameters are here, why not ask Brent put the rest of the code into a function?
+    p = SimpleNamespace(
+        start_position=(6000, 280),
+        start_angle=tau * 0.1,
+        radius=40,
+        stepsize=20,
+        slime_radius=20,
+        slime_severity=0.04,
+    )
+
+    r = Robot(p.start_position, 448*tau/360, p.radius, p.stepsize, p.slime_radius); r.draw_on_image(A); print("->", as_degree(r.angle))
+    r2 = copy(r); r2.walk(140*tau/360); r2.draw_on_image(A); print("->", r2.angle)
+
+    r3 = Robot((5900, 240), 228*tau/360, p.radius, p.stepsize, p.slime_radius); r3.draw_on_image(A); print("->", as_degree(r3.angle))
+    r3.walk(0); r3.draw_on_image(A); print("->", as_degree(r3.angle))
+
+    plt.imsave(Path(this_dir(), "dump.png"), np.stack([A, A, A], axis=-1))
+"""
+
+if 1:
 
     binarize_image(
         Path(this_dir(), "sample_image.png"),
@@ -481,12 +533,13 @@ if __name__ == "__main__":
     p = SimpleNamespace(
         start_position=(6000, 300),
         start_angle=tau * 0.1,
-        radius=40,
+        radius=100,
         stepsize=20,
         slime_radius=20,
         slime_severity=0.1,
     )
-    plotdir = mkdir_and_delete_content(Path(this_dir(), "plots", "example1"))
+    plotdir = mkdir_and_delete_content(Path(this_dir(), "plots", "example"))
+    angledir = mkdir_and_delete_content(Path(this_dir(), "plots", "example_angle"))
 
     # TODO: maybe make border radius * 1.1 or something, but that gets convoluted with the start position!
     A = add_black_border_around_image(A, 120)
@@ -498,22 +551,28 @@ if __name__ == "__main__":
 
     r_prev = copy(r)
     angle = 0
-    for i in range(9999999999):
+    for i in range(9999999999999):
         if i % 50 == 0:
-            print(i)
             imshow_gray_as_purple(A_slime, plotdir)
 
         try:
             r.walk(angle)
             r.draw_on_image(A)
             r.draw_slime_trail(A_slime, r_prev, -p.slime_severity)
-            angle, stop = r.get_best_angle_from_image(A_slime)
-            r_prev = copy(r)
+            angle, stop = r.get_best_angle_from_image(
+                A_slime,
+                #angledir
+            )
+            print(f"{int(r.angle*360/tau)}\t{int(angle*360/tau)}")
             if stop:
                 break
+            r_prev = copy(r)
 
         # walked out of the image
         except IndexError:
             break
 
-    imshow_gray_as_purple(A_slime, plotdir)
+    #r_prev.get_best_angle_from_image(A_slime, True)
+    #r.get_best_angle_from_image(A_slime, True)
+
+    imshow_gray_as_purple(A_slime*A, plotdir)
