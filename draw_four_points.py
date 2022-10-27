@@ -500,6 +500,7 @@ if __name__ == "__main__":
     angle = 0
     for i in range(9999999999):
         if i % 50 == 0:
+            print(i)
             imshow_gray_as_purple(A_slime, plotdir)
 
         try:
