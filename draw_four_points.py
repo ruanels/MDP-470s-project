@@ -520,7 +520,7 @@ if 1:
 if 1:
 
     binarize_image(
-        Path(this_dir(), "sample_image.png"),
+        Path(this_dir(), "Meerendal Vinyard.V3.png"),
         Path(this_dir(), "binimage.png"),
         upscale=4,
         k=0.22,
@@ -531,7 +531,7 @@ if 1:
 
     # TODO: since the parameters are here, why not ask Brent put the rest of the code into a function?
     p = SimpleNamespace(
-        start_position=(6000, 300),
+        start_position=(2000, 800),
         start_angle=tau * 0.1,
         radius=100,
         stepsize=20,
