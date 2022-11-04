@@ -4,6 +4,7 @@ import dataclasses
 import shutil
 from copy import copy
 from datetime import datetime
+import time
 from shutil import copy2
 from types import SimpleNamespace
 from typing import Tuple
@@ -418,7 +419,7 @@ class Robot:
         mask_obsticle = mask_obsticle.astype("bool")
 
         # add a bias so that the bot want's to look in the forward direction
-        bias = np.r_[np.linspace(0.85, 1, 180), np.linspace(1, 0.85, 180)[1:]]
+        bias = np.r_[np.linspace(0.99, 1, 180), np.linspace(1, 0.99, 180)[1:]]
 
         # calculate a score for each angle degree
         vec = vec1 * vec2 * bias
@@ -487,7 +488,16 @@ def imshow_gray_as_purple(im, dir_location, *args, **kwargs):
     path = Path(dir_location, get_current_datetime_as_string()+".png")
     plt.imsave(path, im)
 
-    copy2(path, Path(path.parent, "__latest__.png"))
+    # sometimes my jpg viewer blocks an update???
+    for i in range(1, 10):
+        try:
+            copy2(path, Path(path.parent, "__latest__.png"))
+            break
+        except:
+            if i == 9:
+                raise
+            time.sleep(0.1)
+
 
     # TODO: uncomment this to show the plot on your screen
     #plt.show()
@@ -520,9 +530,9 @@ if 1:
 if 1:
 
     binarize_image(
-        Path(this_dir(), "sample_image.png"),
+        Path(this_dir(), "sample_maze_straight.png"),
         Path(this_dir(), "binimage.png"),
-        upscale=4,
+        upscale=1.5,
         k=0.22,
         window=75,
     )
@@ -531,15 +541,15 @@ if 1:
 
     # TODO: since the parameters are here, why not ask Brent put the rest of the code into a function?
     p = SimpleNamespace(
-        start_position=(6000, 300),
+        start_position=roundi((77*1.5+120, 336*1.5+120)),
         start_angle=tau * 0.1,
-        radius=100,
+        radius=30,
         stepsize=20,
         slime_radius=20,
-        slime_severity=0.1,
+        slime_severity=0.05,
     )
-    plotdir = mkdir_and_delete_content(Path(this_dir(), "plots", "example"))
-    angledir = mkdir_and_delete_content(Path(this_dir(), "plots", "example_angle"))
+    plotdir = mkdir_and_delete_content(Path(this_dir(), "plots", "example_maze"))
+    #angledir = mkdir_and_delete_content(Path(this_dir(), "plots", "example_angle"))
 
     # TODO: maybe make border radius * 1.1 or something, but that gets convoluted with the start position!
     A = add_black_border_around_image(A, 120)
@@ -552,7 +562,7 @@ if 1:
     r_prev = copy(r)
     angle = 0
     for i in range(9999999999999):
-        if i % 50 == 0:
+        if i % 10 == 0:
             imshow_gray_as_purple(A_slime, plotdir)
 
         try:
